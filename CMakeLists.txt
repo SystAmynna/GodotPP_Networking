@@ -51,9 +51,26 @@ add_custom_target(play
 
 # Target: package (Exports the Game - Simple Example)
 # Note: You need an export_presets.cfg in your godot project for this to work
+if(WIN32)
+    set(GODOT_EXPORT_PRESET "Windows Desktop")
+    set(GODOT_EXPORT_OUTPUT "${CMAKE_BINARY_DIR}/build/game.exe")
+elseif(APPLE)
+    set(GODOT_EXPORT_PRESET "macOS")
+    set(GODOT_EXPORT_OUTPUT "${CMAKE_BINARY_DIR}/build/game.zip")
+else() # Linux
+    set(GODOT_EXPORT_PRESET "Linux")
+    set(GODOT_EXPORT_OUTPUT "${CMAKE_BINARY_DIR}/build/game.x86_64")
+endif()
+
+# Target: package (Cross-Platform)
 add_custom_target(package
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/build"
-        COMMAND ${GODOT_EXECUTABLE} --headless --export-release "macOS" "${CMAKE_SOURCE_DIR}/build/game.zip" --path "${GODOT_PROJECT_DIR}"
+        # 1. Ensure the output directory exists
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/build"
+
+        # 2. Run the export with platform-aware variables
+        COMMAND ${GODOT_EXECUTABLE} --headless --path "${GODOT_PROJECT_DIR}"
+        --export-release "${GODOT_EXPORT_PRESET}" "${GODOT_EXPORT_OUTPUT}"
+
         DEPENDS setup GodotPP
-        COMMENT "Packaging Game..."
+        COMMENT "Packaging Game for ${GODOT_EXPORT_PRESET} to ${GODOT_EXPORT_OUTPUT}..."
 )
