@@ -1,14 +1,12 @@
 #include <atomic>
 #include <iostream>
-#include <snl.h>
+#include "ecs_declaration.h"
 #include <csignal>
-#include <vector>
-#include <algorithm>
 #include <cstring>
 #include <memory>
 
 const char* bind_address = "localhost:3666";
-std::vector<std::string> addresses;
+entt::registry registry;
 
 GameSocket * socket_ptr = nullptr;
 std::atomic<bool> should_running{true};
@@ -56,6 +54,7 @@ void run() {
 
         // Poll the socket for incoming data
         const int32_t result = net_socket_poll(socket_ptr, data.get(), data_size, out_sender.get(), sender_size);
+
         // Check the result
         if (result < 0) {
             std::cerr << "Failed to poll socket on " << bind_address << std::endl;
@@ -64,21 +63,34 @@ void run() {
         if (result == 0) continue;
         std::cout << "Received " << result << " bytes from " << out_sender.get() << std::endl << std::flush;
 
-        // Add the sender to the list of known addresses if it's not already there
-        if (out_sender[0] != '\0' && std::find(addresses.begin(), addresses.end(), out_sender.get()) == addresses.end()) {
-            addresses.emplace_back(out_sender.get());
-            std::cout << "New address added: " << out_sender.get() << std::endl << std::flush;
-        }
 
-        // Broadcast the received data to all other connected clients
-        for (const std::string& address : addresses) {
-            if (address == out_sender.get()) continue;
 
-            const int32_t send_result = net_socket_send(socket_ptr, address.c_str(), data.get(), static_cast<uintptr_t>(result));
-            if (send_result < 0) {
-                std::cerr << "Failed to send data to " << address << std::endl;
+        std::string sender_ip(out_sender.get());
+
+        // Verify if the sender is already known (i.e., has an associated entity in the registry)
+        bool exists = false;
+        auto view = registry.view<ClientConnection>();
+        for(const auto entity : view) {
+            if(view.get<ClientConnection>(entity).ip_address == sender_ip) {
+                exists = true;
+                break;
             }
         }
+
+        // If the sender is new, create a new entity and broadcast the spawn packet
+        if (!exists) {
+            std::cout << "New client detected: " << sender_ip << std::endl;
+
+            const entt::entity new_player = handle_new_connection(registry, sender_ip);
+            broadcast_spawn(registry, new_player, socket_ptr);
+        }
+
+        // Broadcast the received data to all other clients except the sender
+        view.each([&](auto &conn) {
+            if (conn.ip_address != sender_ip) {
+                net_socket_send(socket_ptr, conn.ip_address.c_str(), data.get(), result);
+            }
+        });
 
     }
 }
