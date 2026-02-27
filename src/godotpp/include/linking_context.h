@@ -4,20 +4,19 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/variant/callable.hpp>
 #include <functional>
 
 using namespace godot;
 
-using entity_factory = std::function<Node*>();
+using entity_factory = std::function<Node*()>;
 
 class linking_context : public Object{
 
-    GDCLASS(linking_context, Object);
+    GDCLASS(linking_context, Object)
 
-    // Maps NetworkTypeID (e.g., 1) to a Godot ClassName (e.g., "Player")
-    HashMap<uint32_t, entity_factory> type_registry;
+    HashMap<uint32_t, Callable> type_registry;
 
-    // Maps Server-provided NetworkID to the actual Node instance
     HashMap<uint32_t, Node*> network_id_to_node;
     HashMap<Node*, uint32_t> node_to_network_id;
 
@@ -26,8 +25,7 @@ protected:
 
 public:
 
-    // Registry Management
-    void register_network_type(uint32_t type_id, entity_factory factory);
+    void register_network_type(uint32_t type_id, Callable factory);
 
     // Entity Management
     void add_entity(uint32_t network_id, Node* node);

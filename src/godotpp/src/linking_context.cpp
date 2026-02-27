@@ -1,8 +1,8 @@
 #include "../include/linking_context.h"
+#include <godot_cpp/variant/utility_functions.hpp>
 
 
-
-void linking_context::register_type(uint32_t type_id, entity_factory factory) {
+void linking_context::register_network_type(uint32_t type_id, Callable factory) {
     type_registry[type_id] = factory;
 }
 
@@ -35,8 +35,10 @@ Node* linking_context::create_network_entity(uint32_t type_id, uint32_t network_
         return nullptr;
     }
 
-    // Execute the lambda to get a new instance
-    Node* node = type_registry[type_id]();
+    // Execute the callable to get a new instance
+    Variant result = type_registry[type_id].call();
+    Node* node = Object::cast_to<Node>(result.get_owner());
+
 
     if (node) {
         add_entity(network_id, node);
@@ -48,5 +50,6 @@ Node* linking_context::create_network_entity(uint32_t type_id, uint32_t network_
 void linking_context::_bind_methods() {
     // Note: We can't easily bind std::function to GDScript,
     // so this system is primarily for C++ internal use.
+    ClassDB::bind_method(D_METHOD("register_network_type", "type_id", "factory"), &linking_context::register_network_type);
     ClassDB::bind_method(D_METHOD("get_entity", "network_id"), &linking_context::get_entity);
 }
